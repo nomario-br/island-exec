@@ -1,0 +1,2315 @@
+"use client"
+
+import {
+  Shield,
+  User,
+  Key,
+  Check,
+  X,
+  AlertTriangle,
+  Clock,
+  FileText,
+  XCircle,
+  Code,
+  Smartphone,
+  Monitor,
+  Settings,
+  Gamepad2,
+  Download,
+} from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { useEffect, useState, useRef } from "react"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+interface DownloadFile {
+  id: string
+  name: string
+  description: string
+  fileSize: string
+  fileType: string
+  downloadUrl: string
+  version?: string
+  adminOnly?: boolean
+  requiresWarning?: boolean
+  sizeInMB?: number
+  warningMessage?: string
+  isGitHubRaw?: boolean
+  isModded?: boolean
+  isOnlineOnly?: boolean
+  sourceUrl?: string
+  category: "pc-tools" | "ios-jailbreak" | "development" | "system-tools" | "admin-tools" | "roblox" | "android" | "ipa"
+  additionalButtons?: {
+    label: string
+    url: string
+    description?: string
+  }[]
+  tutorialContent?: string
+  note?: string
+}
+
+interface DownloadProgress {
+  fileId: string
+  fileName: string
+  progress: number
+  status: "downloading" | "completed" | "error" | "fetching" | "creating" | "cancelled"
+  downloadedMB: number
+  totalMB: number
+  statusMessage?: string
+  intervalId?: NodeJS.Timeout
+}
+
+interface ChangelogEntry {
+  version: string
+  date: string
+  changes: string[]
+  tags: string[]
+}
+
+interface Cat {
+  id: string
+  x: number
+  y: number
+  size: number
+  imageUrl: string
+}
+
+const validAdminKeys = ["mario", "staffkey", "haihai", "gen17744hf", "huh", "opa"]
+const ownerKey = "mario"
+
+const adminCommands = [
+  "clear-downloads - Clear all active downloads",
+  "reset-counts - Reset all download counters",
+  "spawn-cat - Spawn a random cat",
+  "clear-cats - Remove all cats",
+  "toggle-theme - Switch between light/dark mode",
+  "reload-page - Refresh the entire page",
+  "export-logs - Export console logs",
+  "show-stats - Display site statistics",
+]
+
+// Global download counts (simulated as if from a server)
+const globalDownloadCounts: Record<string, number> = {}
+
+const changelog: ChangelogEntry[] = [
+  {
+    version: "v1.0.0",
+    date: "2025-05-31",
+    changes: [
+      "Added Krnl iOS",
+      "Added Extract App",
+      "Added new IPA category with multiple apps",
+      "Added YouTube Plus with multiple installation options",
+      "Added uYouEnhanced and uYou for YouTube",
+      "Added EeVeeSpotify with multiple installation methods",
+      "Added YTMusicUltimate",
+      "Added CyPwn Store and AppStore++",
+      "Added TrollStore and Scarlet",
+      "Added Whitelist with warning system",
+      "Added Sileo and Feather",
+      "Added Regram with TrollStore support",
+      "Added multiple Ksign and Esign variants",
+      "Added Portuguese translation option",
+      "Added 'Modded' tag for modified apps",
+      "Added source button for PC Booster",
+      "Updated Bob'omb PE ISO link",
+      "Fixed Discord invite link",
+      "Improved download progress system",
+      "Changed Random Password Generator to online tool",
+    ],
+    tags: ["Initial Release", "iOS Apps", "IPA Support", "Android Apps", "Roblox Tools"],
+  },
+]
+
+const files: DownloadFile[] = [
+  {
+    id: "1",
+    name: "PC Booster",
+    description: "Boost your PC performance with our latest optimization tool",
+    fileSize: "64.4 MB",
+    fileType: "BAT",
+    downloadUrl: "https://raw.githubusercontent.com/nomario-br/pc-booster/refs/heads/main/pc%20melhor%20V2.bat",
+    version: "2.1",
+    sizeInMB: 64.4,
+    isGitHubRaw: true,
+    sourceUrl: "https://raw.githubusercontent.com/nomario-br/pc-booster/refs/heads/main/pc%20melhor%20V2.bat",
+    category: "pc-tools",
+  },
+  {
+    id: "2",
+    name: "Island",
+    description: "Island, the best Roblox executor ever in this world",
+    fileSize: "245 MB",
+    fileType: "EXE",
+    downloadUrl: "https://bigrat.monster",
+    version: "0",
+    sizeInMB: 245,
+    category: "roblox",
+  },
+  {
+    id: "4",
+    name: "My GitHub",
+    description: "Visit my GitHub profile for more projects and code",
+    fileSize: "N/A",
+    fileType: "LINK",
+    downloadUrl: "https://github.com/nomario-br/",
+    category: "development",
+  },
+  {
+    id: "5",
+    name: "Sideloadly",
+    description: "iOS app sideloading tool for installing IPA files",
+    fileSize: "N/A",
+    fileType: "EXE",
+    downloadUrl: "https://sideloadly.io/SideloadlySetup64.exe",
+    version: "0.45.2",
+    sizeInMB: 15.2,
+    category: "ios-jailbreak",
+  },
+  {
+    id: "12",
+    name: "Official Tiny11",
+    description: "Lightweight Windows 11 ISO for testing and deployment",
+    fileSize: "3.2 GB",
+    fileType: "ISO",
+    downloadUrl "https://download2436.mediafire.com/z25goth66adgt9lMrZZdjWWdsbFcuV3tcL3rB0mufCBqVzU7Cc4LwWfKZQrfgxi_ZwNokcz0akm7V9b1SWtBwXtuXc4W7FbmXg3WT87_weyM4xsIkvXLlNfMmre9tE05NyYjQiCAo-Q4OQzWH-yKGLcZ91GWRvXdmPcq7XDsL_x__x8/8kmpjeilz8ljkw0/tiny11Core24H2.26100.4061.zip",
+    version: "24h2",
+    sizeInMB: 2900,
+    requiresWarning: true,
+    warningMessage: "this file is heavy as balls vro",
+    category: "system-tools",
+  },
+  {
+    id: "13",
+    name: "Hiren's BootCD PE",
+    description: "Comprehensive boot disk with system recovery and diagnostic tools",
+    fileSize: "1.2 GB",
+    fileType: "ISO",
+    downloadUrl: "https://www.hirensbootcd.org/files/HBCD_PE_x64.iso",
+    version: "1.0.8",
+    sizeInMB: 1200,
+    category: "system-tools",
+  },
+  {
+    id: "14",
+    name: "Easy Context Menu",
+    description: "Easily customize Windows context menu with additional options",
+    fileSize: "2.1 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/files/downloads.php?easy-context-menu",
+    version: "1.6",
+    sizeInMB: 2.1,
+    category: "pc-tools",
+  },
+  {
+    id: "15",
+    name: "Temp Cleaner",
+    description: "Clean temporary files and free up disk space efficiently",
+    fileSize: "1.8 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/files/downloads.php?st-temp-cleaner",
+    version: "1.3",
+    sizeInMB: 1.8,
+    category: "pc-tools",
+  },
+  {
+    id: "16",
+    name: "Defender Control",
+    description: "Enable or disable Windows Defender with a single click",
+    fileSize: "1.5 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/downloads/?st-defender-control",
+    version: "2.1",
+    sizeInMB: 1.5,
+    category: "pc-tools",
+  },
+  {
+    id: "17",
+    name: "Edge Blocker",
+    description: "Block Microsoft Edge installation and updates",
+    fileSize: "1.2 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/files/downloads.php?st-edge-block",
+    version: "2.0",
+    sizeInMB: 1.2,
+    category: "pc-tools",
+  },
+  {
+    id: "18",
+    name: "Windows Update Blocker",
+    description: "Disable or enable Windows automatic updates",
+    fileSize: "1.4 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/files/downloads.php?st-windows-update-blocker",
+    version: "1.8",
+    sizeInMB: 1.4,
+    category: "pc-tools",
+  },
+  {
+    id: "19",
+    name: "Reduce Memory",
+    description: "Reduce memory usage and optimize system performance",
+    fileSize: "1.1 MB",
+    fileType: "EXE",
+    downloadUrl: "https://www.sordum.org/files/downloads.php?st-reduce-memory",
+    version: "1.7",
+    sizeInMB: 1.1,
+    category: "pc-tools",
+  },
+  {
+    id: "20",
+    name: "Random Password Generator",
+    description: "Generate secure random passwords with customizable options",
+    fileSize: "Online",
+    fileType: "ONLINE",
+    downloadUrl: "https://www.sordum.org/passwordgenerator/",
+    version: "1.0",
+    isOnlineOnly: true,
+    category: "pc-tools",
+  },
+  {
+    id: "21",
+    name: "Bob'omb PE ISO",
+    description: "Custom Windows PE environment for system recovery and maintenance",
+    fileSize: "4.2 GB",
+    fileType: "RAR",
+    downloadUrl:
+      "https://s700.lostlinks.xyz:8443/d/ufjvuos5heh6777t4ntjncihu4a44n2fq6ypmzyqhogfpgxnzljhiik7fmkg5o2tqogd64sz/B-4985BOBWPEx64.rar?t=",
+    version: "Unknown",
+    sizeInMB: 4200,
+    category: "system-tools",
+  },
+  {
+    id: "22",
+    name: "WinToHDD Enterprise",
+    description: "Install or reinstall Windows without using a CD/DVD or USB drive",
+    fileSize: "25.6 MB",
+    fileType: "7Z",
+    downloadUrl: "https://www.mediafire.com/file/qtf4j57xdd6xrqo/WinToHDD6.6.1.7z/file",
+    version: "6.6.1",
+    sizeInMB: 25.6,
+    category: "system-tools",
+  },
+  {
+    id: "23",
+    name: "Krnl",
+    description: "Popular Roblox executor with powerful script execution capabilities",
+    fileSize: "18.5 MB",
+    fileType: "EXE",
+    downloadUrl: "https://wearedevs.net/d/Krnl",
+    version: "2.0",
+    sizeInMB: 18.5,
+    category: "roblox",
+  },
+  {
+    id: "24",
+    name: "YouTube Revanced",
+    description: "Modified YouTube app with premium features and ad blocking",
+    fileSize: "85.3 MB",
+    fileType: "APK",
+    downloadUrl: "https://s1.spiderdown.com/Youtube/YouTube%20v20.21.52%20%28Premium%29.apk",
+    version: "20.21.52",
+    sizeInMB: 85.3,
+    isModded: true,
+    category: "android",
+    requiresWarning: true,
+    warningMessage:
+      "This app requires microG Services to work properly. Please download it after installing the main app.",
+    additionalButtons: [
+      {
+        label: "microG Services",
+        url: "https://s1.spiderdown.com/Youtube/microG%20Services%20v0.3.1.4.240913%20%28All%20Devices%29.apk",
+        description: "Required for YouTube Revanced to work properly",
+      },
+      {
+        label: "microG for Huawei",
+        url: "https://s1.spiderdown.com/Youtube/microG%20%28huawei%20Mobiles%29.apk",
+        description: "Special version for Huawei devices",
+      },
+    ],
+  },
+  {
+    id: "25",
+    name: "Liteapks Store",
+    description: "App store with modded and premium apps for Android",
+    fileSize: "12.8 MB",
+    fileType: "APK",
+    downloadUrl: "https://s1.spiderdown.com/old-data/Mobile%20App/Liteapks%20v1.0.9%20(Official).apk",
+    version: "1.0.9",
+    sizeInMB: 12.8,
+    category: "android",
+  },
+  {
+    id: "26",
+    name: "Spotify Premium",
+    description: "Modified Spotify app with premium features unlocked",
+    fileSize: "30.5 MB",
+    fileType: "APK",
+    downloadUrl: "https://s1.spiderdown.com/Spotify/Spotify%20v9.0.48.380%20%28Premium%29%20fix.apk",
+    version: "9.0.48.380",
+    sizeInMB: 30.5,
+    isModded: true,
+    category: "android",
+    additionalButtons: [
+      {
+        label: "AMOLED Version",
+        url: "https://s1.spiderdown.com/Spotify/Spotify%20v9.0.48.380%20%28Premium%29%20amoled%20fix.apk",
+        description: "Dark theme optimized for AMOLED screens",
+      },
+    ],
+    tutorialContent:
+      "1) Note: How To Fix Spotify Login error:\n\nJust Reset password manually\n\n2) How to Fix Playlist not showing?\n\nVideo Guide:\n\nhttps://youtu.be/czvoZlcQAcg\n\nSetp-1: Please Connect to USA or any VPN server where Spotify available (some free VPN mod at LITEAPKS.)\n\nstep-2: Clear app data>go to Spotify website>Login> Now select view profile> Edit Profile> Now You can see country settings > Change to USA or VPN server u choosen if it shows> if not shows then wait sometime & Try again while u connected to VPN> now login to Spotify mod and it works.\n\nPlease Use VPN while listening to music 1 or 2 days and later open Spotify official website without connecting to VPN and change country settings to your official one and it works normaly without VPN…\n\nPlease share with your friends who use Spotify mod✅",
+  },
+  {
+    id: "27",
+    name: "Alight Motion",
+    description: "Professional video and animation editor with premium features",
+    fileSize: "48.2 MB",
+    fileType: "APK",
+    downloadUrl: "https://s1.spiderdown.com/Alight%20Motion/Alight%20Motion%20v5.0.275%20%28Premium%29.apk",
+    version: "5.0.275",
+    sizeInMB: 48.2,
+    isModded: true,
+    category: "android",
+  },
+  {
+    id: "28",
+    name: "Capcut Pro",
+    description: "Professional video editing app with all premium features unlocked",
+    fileSize: "76.3 MB",
+    fileType: "APK",
+    downloadUrl: "https://s1.spiderdown.com/CapCut/CapCut%20v14.5.0%20%28Pro%29%20fix.apk",
+    version: "14.5.0",
+    sizeInMB: 76.3,
+    isModded: true,
+    category: "android",
+    requiresWarning: true,
+    warningMessage: "Note: Login required to use all features",
+  },
+  {
+    id: "29",
+    name: "Krnl Android",
+    description: "Krnl executor version for Android devices",
+    fileSize: "15.2 MB",
+    fileType: "APK",
+    downloadUrl: "https://wearedevs.net/d/Krnl",
+    version: "2.0",
+    sizeInMB: 15.2,
+    category: "android",
+  },
+  // iOS Jailbreak additions
+  {
+    id: "30",
+    name: "Esign 1",
+    description: "iOS app signing tool for installing IPA files without a computer",
+    fileSize: "8.5 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/qqlFXY",
+    version: "4.8.2",
+    sizeInMB: 8.5,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "31",
+    name: "Ksign 1",
+    description: "Enhanced version of Esign with more features",
+    fileSize: "9.2 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/G2UAJs",
+    version: "1.0",
+    sizeInMB: 9.2,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "32",
+    name: "Ksign 2",
+    description: "Alternative version of Ksign",
+    fileSize: "9.3 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/jvIbwS",
+    version: "1.0",
+    sizeInMB: 9.3,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "33",
+    name: "Ksign 3",
+    description: "Another variant of Ksign",
+    fileSize: "9.4 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/87VrR4",
+    version: "1.0",
+    sizeInMB: 9.4,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "34",
+    name: "Ksign 4",
+    description: "Fourth variant of Ksign",
+    fileSize: "9.5 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/djQtgO",
+    version: "1.0",
+    sizeInMB: 9.5,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "35",
+    name: "Ksign 5",
+    description: "Fifth variant of Ksign",
+    fileSize: "9.6 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/9qyWff",
+    version: "1.0",
+    sizeInMB: 9.6,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "36",
+    name: "Esign 2",
+    description: "Alternative version of Esign",
+    fileSize: "8.7 MB",
+    fileType: "IPA",
+    downloadUrl: "https://api.khoindvn.eu.org/SYKaO8",
+    version: "4.8.3",
+    sizeInMB: 8.7,
+    category: "ios-jailbreak",
+    note: "Open this on your iPhone only",
+  },
+  {
+    id: "37",
+    name: "Certificates",
+    description: "iOS certificates for app signing",
+    fileSize: "Varies",
+    fileType: "CERT",
+    downloadUrl: "https://github.com/esigncert/khoindvn/raw/refs/heads/main/document/DNS/Certs-Khoindvn.zip",
+    version: "1.0",
+    sizeInMB: 1,
+    category: "ios-jailbreak",
+    requiresWarning: true,
+    warningMessage: "khoidvn is the goat",
+  },
+  // IPA Category
+  {
+    id: "38",
+    name: "YouTube Plus",
+    description: "Enhanced YouTube app with premium features",
+    fileSize: "95.7 MB",
+    fileType: "IPA",
+    downloadUrl:
+      "https://download2299.mediafire.com/g7wqyt9om7wg7-Pgs6FcjzLyeyBlsyKegwphZfAK2xi-YyVrCd0SfB3wDVKAuFXaMequQBC_2ex4a33dciMwXI5npmEg6_EgdiALycwbWUZFD2BSHW709ie_nABGOJ0oM4mTyZAcwiI4Hc-5X9yYp7dPLZnzm0YkmsxrAXpqrINL7Nk/8mn2nnind0o6ng6/YouTubePlus_5.2b1_%2820.12.4%29.ipa",
+    version: "5.2b1",
+    sizeInMB: 95.7,
+    isModded: true,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://download2299.mediafire.com/g7wqyt9om7wg7-Pgs6FcjzLyeyBlsyKegwphZfAK2xi-YyVrCd0SfB3wDVKAuFXaMequQBC_2ex4a33dciMwXI5npmEg6_EgdiALycwbWUZFD2BSHW709ie_nABGOJ0oM4mTyZAcwiI4Hc-5X9yYp7dPLZnzm0YkmsxrAXpqrINL7Nk/8mn2nnind0o6ng6/YouTubePlus_5.2b1_%2820.12.4%29.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://download2299.mediafire.com/g7wqyt9om7wg7-Pgs6FcjzLyeyBlsyKegwphZfAK2xi-YyVrCd0SfB3wDVKAuFXaMequQBC_2ex4a33dciMwXI5npmEg6_EgdiALycwbWUZFD2BSHW709ie_nABGOJ0oM4mTyZAcwiI4Hc-5X9yYp7dPLZnzm0YkmsxrAXpqrINL7Nk/8mn2nnind0o6ng6/YouTubePlus_5.2b1_%2820.12.4%29.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://download2299.mediafire.com/g7wqyt9om7wg7-Pgs6FcjzLyeyBlsyKegwphZfAK2xi-YyVrCd0SfB3wDVKAuFXaMequQBC_2ex4a33dciMwXI5npmEg6_EgdiALycwbWUZFD2BSHW709ie_nABGOJ0oM4mTyZAcwiI4Hc-5X9yYp7dPLZnzm0YkmsxrAXpqrINL7Nk/8mn2nnind0o6ng6/YouTubePlus_5.2b1_%2820.12.4%29.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://download2299.mediafire.com/g7wqyt9om7wg7-Pgs6FcjzLyeyBlsyKegwphZfAK2xi-YyVrCd0SfB3wDVKAuFXaMequQBC_2ex4a33dciMwXI5npmEg6_EgdiALycwbWUZFD2BSHW709ie_nABGOJ0oM4mTyZAcwiI4Hc-5X9yYp7dPLZnzm0YkmsxrAXpqrINL7Nk/8mn2nnind0o6ng6/YouTubePlus_5.2b1_%2820.12.4%29.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "39",
+    name: "uYouEnhanced",
+    description: "Enhanced YouTube app with ad blocking and background playback",
+    fileSize: "87.3 MB",
+    fileType: "IPA",
+    downloadUrl:
+      "https://github.com/nomario-br/uYouEnhanced-sideload/releases/download/v20.08.3-3.0.4-(1)/uYouEnhanced_20.08.3-3.0.4.ipa",
+    version: "20.08.3-3.0.4",
+    sizeInMB: 87.3,
+    isModded: true,
+    category: "ipa",
+    requiresWarning: true,
+    warningMessage: "This version is outdated but still works",
+  },
+  {
+    id: "40",
+    name: "Sileo",
+    description: "Modern package manager for jailbroken iOS devices",
+    fileSize: "12.5 MB",
+    fileType: "IPA",
+    downloadUrl: "https://repo.getsileo.app",
+    version: "Latest",
+    sizeInMB: 12.5,
+    category: "ipa",
+  },
+  {
+    id: "41",
+    name: "Krnl iOS",
+    description: "Krnl executor for iOS devices",
+    fileSize: "24.8 MB",
+    fileType: "IPA",
+    downloadUrl: "https://wrdcdn.net/r/54921/1746919863937/Krnl_release_670.ipa",
+    version: "670",
+    sizeInMB: 24.8,
+    category: "ipa",
+  },
+  {
+    id: "42",
+    name: "Feather",
+    description: "Lightweight Twitter client for iOS",
+    fileSize: "15.2 MB",
+    fileType: "IPA",
+    downloadUrl: "https://github.com/khcrysalis/Feather/releases/download/v2.0.1/Feather-default.ipa",
+    version: "2.0.1",
+    sizeInMB: 15.2,
+    category: "ipa",
+  },
+  {
+    id: "43",
+    name: "Regram",
+    description: "Enhanced Instagram client with additional features",
+    fileSize: "76.4 MB",
+    fileType: "IPA",
+    downloadUrl: "https://cdn.fouadraheb.com/ipas/regram/1.0.30/com.burbn.instagram_380.0.0_regram_1.0.30_sl.ipa",
+    version: "1.0.30",
+    sizeInMB: 76.4,
+    isModded: true,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://cdn.fouadraheb.com/ipas/regram/1.0.30/com.burbn.instagram_380.0.0_regram_1.0.30_sl.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://cdn.fouadraheb.com/ipas/regram/1.0.30/com.burbn.instagram_380.0.0_regram_1.0.30_sl.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://cdn.fouadraheb.com/ipas/regram/1.0.30/com.burbn.instagram_380.0.0_regram_1.0.30_sl.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://cdn.fouadraheb.com/ipas/regram/1.0.30/com.burbn.instagram_380.0.0_regram_1.0.30_sl.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "44",
+    name: "EeveeSpotify",
+    description: "Enhanced Spotify client with premium features",
+    fileSize: "62.8 MB",
+    fileType: "IPA",
+    downloadUrl: "https://github.com/whoeevee/EeveeSpotify/releases/download/swift5.9.7/EeveeSpotify-5.9.7-9.0.42.ipa",
+    version: "5.9.7-9.0.42",
+    sizeInMB: 62.8,
+    isModded: true,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://github.com/whoeevee/EeveeSpotify/releases/download/swift5.9.7/EeveeSpotify-5.9.7-9.0.42.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://github.com/whoeevee/EeveeSpotify/releases/download/swift5.9.7/EeveeSpotify-5.9.7-9.0.42.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install=https//github.com/whoeevee/EeveeSpotify/releases/download/swift5.9.7/EeveeSpotify-5.9.7-9.0.42.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://github.com/whoeevee/EeveeSpotify/releases/download/swift5.9.7/EeveeSpotify-5.9.7-9.0.42.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "45",
+    name: "YTMusicUltimate",
+    description: "Enhanced YouTube Music app with premium features",
+    fileSize: "58.3 MB",
+    fileType: "IPA",
+    downloadUrl: "https://www.mediafire.com/file/l4wt2tfgba4t2ad/YTMU_2.3.1_7.33.2.ipa/file",
+    version: "2.3.1",
+    sizeInMB: 58.3,
+    isModded: true,
+    category: "ipa",
+  },
+  {
+    id: "46",
+    name: "CyPwn Store",
+    description: "Alternative app store for iOS",
+    fileSize: "15.7 MB",
+    fileType: "IPA",
+    downloadUrl: "https://ipa.cypwn.xyz/ipas/CyPwn_Store.ipa",
+    version: "1.0",
+    sizeInMB: 15.7,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://ipa.cypwn.xyz/ipas/CyPwn_Store.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://ipa.cypwn.xyz/ipas/CyPwn_Store.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://ipa.cypwn.xyz/ipas/CyPwn_Store.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://ipa.cypwn.xyz/ipas/CyPwn_Store.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "47",
+    name: "AppStore++",
+    description: "Enhanced App Store with downgrade capabilities",
+    fileSize: "Repository",
+    fileType: "REPO",
+    downloadUrl: "https://cokepokes.github.io",
+    version: "Latest",
+    category: "ipa",
+  },
+  {
+    id: "48",
+    name: "uYou",
+    description: "YouTube enhancer for iOS",
+    fileSize: "84.2 MB",
+    fileType: "IPA",
+    downloadUrl: "https://github.com/MiRO92/uYou-for-YouTube/releases/download/3.0.3/YouTube_19.06.2_uYou_3.0.3.ipa",
+    version: "3.0.3",
+    sizeInMB: 84.2,
+    isModded: true,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://github.com/MiRO92/uYou-for-YouTube/releases/download/3.0.3/YouTube_19.06.2_uYou_3.0.3.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://github.com/MiRO92/uYou-for-YouTube/releases/download/3.0.3/YouTube_19.06.2_uYou_3.0.3.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://github.com/MiRO92/uYou-for-YouTube/releases/download/3.0.3/YouTube_19.06.2_uYou_3.0.3.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://github.com/MiRO92/uYou-for-YouTube/releases/download/3.0.3/YouTube_19.06.2_uYou_3.0.3.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "49",
+    name: "TrollStore",
+    description: "Permanent app installation solution for iOS",
+    fileSize: "Varies",
+    fileType: "IPA",
+    downloadUrl: "https://onejailbreak.com/blog/trollstore/",
+    version: "Latest",
+    sizeInMB: 10,
+    category: "ipa",
+  },
+  {
+    id: "50",
+    name: "appdb",
+    description: "iOS app database and installer",
+    fileSize: "18.3 MB",
+    fileType: "IPA",
+    downloadUrl: "https://github.com/n3d1117/appdb/releases/download/v1.1.6/appdb-v1.1.6-stev3fvcks.ipa",
+    version: "1.1.6",
+    sizeInMB: 18.3,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://github.com/n3d1117/appdb/releases/download/v1.1.6/appdb-v1.1.6-stev3fvcks.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://github.com/n3d1117/appdb/releases/download/v1.1.6/appdb-v1.1.6-stev3fvcks.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://github.com/n3d1117/appdb/releases/download/v1.1.6/appdb-v1.1.6-stev3fvcks.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://github.com/n3d1117/appdb/releases/download/v1.1.6/appdb-v1.1.6-stev3fvcks.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "51",
+    name: "Scarlet",
+    description: "Alternative app installer for iOS",
+    fileSize: "16.8 MB",
+    fileType: "IPA",
+    downloadUrl: "https://resources.usescarlet.com/repo/IPAs/ScarletAlpha.ipa",
+    version: "Alpha",
+    sizeInMB: 16.8,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://resources.usescarlet.com/repo/IPAs/ScarletAlpha.ipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://resources.usescarlet.com/repo/IPAs/ScarletAlpha.ipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://resources.usescarlet.com/repo/IPAs/ScarletAlpha.ipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://resources.usescarlet.com/repo/IPAs/ScarletAlpha.ipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  {
+    id: "52",
+    name: "Whitelist",
+    description: "Prevents apps from being blacklisted",
+    fileSize: "8.5 MB",
+    fileType: "IPA",
+    downloadUrl:"https://github.com/BomberFish/Whitelist/releases/download/1.1.0/Whitelist.ipa",
+    version: "1.0",
+    sizeInMB: 8.5,
+    category: "ipa",
+  },
+  {
+    id: "53",
+    name: "ExtractApp",
+    description: "Extract IPA files from installed apps",
+    fileSize: "5.2 MB",
+    fileType: "TIPA",
+    downloadUrl: "https://github.com/DevelopCubeLab/ExtractApp/releases/download/1.2/ExtractApp_1.2.tipa",
+    version: "1.2",
+    sizeInMB: 5.2,
+    category: "ipa",
+    additionalButtons: [
+      {
+        label: "TrollStore",
+        url: "apple-magnifier://install?url=https://github.com/DevelopCubeLab/ExtractApp/releases/download/1.2/ExtractApp_1.2.tipa",
+        description: "Install directly to TrollStore",
+      },
+      {
+        label: "AltStore",
+        url: "altstore://install?url=https://github.com/DevelopCubeLab/ExtractApp/releases/download/1.2/ExtractApp_1.2.tipa",
+        description: "Install directly to AltStore",
+      },
+      {
+        label: "Scarlet",
+        url: "scarlet://install?url=https://github.com/DevelopCubeLab/ExtractApp/releases/download/1.2/ExtractApp_1.2.tipa",
+        description: "Install directly to Scarlet",
+      },
+      {
+        label: "ReProvision",
+        url: "reprovision://install?url=https://github.com/DevelopCubeLab/ExtractApp/releases/download/1.2/ExtractApp_1.2.tipa",
+        description: "Install directly to ReProvision",
+      },
+    ],
+  },
+  // Admin only files
+  {
+    id: "6",
+    name: "Admin Panel Access",
+    description: "Access to advanced admin tools and configurations",
+    fileSize: "N/A",
+    fileType: "ADMIN",
+    downloadUrl: "#",
+    adminOnly: true,
+    requiresWarning: true,
+    warningMessage: "Not done yet.",
+    category: "admin-tools",
+  },
+  {
+    id: "7",
+    name: "Premium Tools Pack",
+    description: "Exclusive premium tools for administrators only",
+    fileSize: "N/A",
+    fileType: "ZIP",
+    downloadUrl: "#",
+    adminOnly: true,
+    sizeInMB: 0,
+    requiresWarning: true,
+    warningMessage: "Missing file, please wait",
+    category: "admin-tools",
+  },
+  {
+    id: "8",
+    name: "Island Source",
+    description: "Source code for Island Roblox executor",
+    fileSize: "Unknown",
+    fileType: "ZIP",
+    downloadUrl: "#",
+    adminOnly: true,
+    sizeInMB: 340,
+    requiresWarning: true,
+    warningMessage: "DO NOT SHARE THIS WITH ANYONE!",
+    category: "admin-tools",
+  },
+  {
+    id: "9",
+    name: "Jailbreak Source",
+    description: "Source code for iPhone jailbreak toolkit",
+    fileSize: "Unknown",
+    fileType: "ZIP",
+    downloadUrl: "#",
+    adminOnly: true,
+    sizeInMB: 78,
+    requiresWarning: true,
+    warningMessage: "Missing file, please wait",
+    category: "admin-tools",
+  },
+]
+
+const categoryIcons = {
+  "pc-tools": Monitor,
+  "ios-jailbreak": Smartphone,
+  development: Code,
+  "system-tools": Settings,
+  "admin-tools": Shield,
+  roblox: Gamepad2,
+  android: Smartphone,
+  ipa: Smartphone,
+}
+
+const categoryNames = {
+  "pc-tools": "PC Tools",
+  "ios-jailbreak": "iOS Jailbreak",
+  development: "Development",
+  "system-tools": "System Tools",
+  "admin-tools": "Admin Tools",
+  roblox: "Roblox",
+  android: "Android",
+  ipa: "IPA",
+}
+
+export default function DownloadCenter() {
+  const searchParams = useSearchParams()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
+  const [adminKey, setAdminKey] = useState<string | null>(null)
+  const [keyInput, setKeyInput] = useState("")
+  const [keyStatus, setKeyStatus] = useState<"idle" | "valid" | "invalid">("idle")
+  const [showKeyOverlay, setShowKeyOverlay] = useState(false)
+  const [showWarningDialog, setShowWarningDialog] = useState(false)
+  const [showChangelogDialog, setShowChangelogDialog] = useState(false)
+  const [showTutorialDialog, setShowTutorialDialog] = useState(false)
+  const [tutorialContent, setTutorialContent] = useState("")
+  const [warningMessage, setWarningMessage] = useState("")
+  const [currentFileId, setCurrentFileId] = useState<string | null>(null)
+  const [downloads, setDownloads] = useState<DownloadProgress[]>([])
+  const [downloadOrder, setDownloadOrder] = useState<string[]>([])
+  const [themeClickCount, setThemeClickCount] = useState(0)
+  const [lightModeTimer, setLightModeTimer] = useState<NodeJS.Timeout | null>(null)
+  const [cats, setCats] = useState<Cat[]>([])
+  const [showEasterEggWarning, setShowEasterEggWarning] = useState(false)
+  const [hideThemeToggle, setHideThemeToggle] = useState(false)
+  const [changelogSearch, setChangelogSearch] = useState("")
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [activeCategory, setActiveCategory] = useState("pc-tools")
+  const [isPortuguese, setIsPortuguese] = useState(false)
+  const lightModeStartTime = useRef<number | null>(null)
+  const [showCommandPanel, setShowCommandPanel] = useState(false)
+  const [commandInput, setCommandInput] = useState("")
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+
+  // Get random cat image URL
+  const getRandomCatImage = () => {
+    const catApis = [
+      "https://cataas.com/cat",
+      "https://cataas.com/cat/cute",
+      "https://cataas.com/cat/kitten",
+      "https://cataas.com/cat/orange",
+      "https://cataas.com/cat/black",
+      "https://cataas.com/cat/white",
+    ]
+    return catApis[Math.floor(Math.random() * catApis.length)] + `?${Math.random()}`
+  }
+
+  // Console logging function
+  const logToConsole = (action: string, details: any = {}) => {
+    const timestamp = new Date().toISOString()
+    const logData = {
+      timestamp,
+      action,
+      details,
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      isAdmin,
+      isOwner,
+      adminKey: isAdmin ? adminKey : "N/A",
+    }
+
+    console.group(`🔍 Download Center Action: ${action}`)
+    console.log("📅 Timestamp:", timestamp)
+    console.log("🎯 Action:", action)
+    console.log("📋 Details:", details)
+    console.log("👤 User Agent:", navigator.userAgent)
+    console.log("🌐 URL:", window.location.href)
+    console.log("🔐 Admin Status:", isAdmin ? (isOwner ? "OWNER" : "ADMIN") : "USER")
+    console.log("🔑 Admin Key:", isAdmin ? adminKey : "N/A")
+    console.log("📝 Download Order:", downloadOrder)
+    console.log("🎨 Theme Click Count:", themeClickCount)
+    console.log("🐱 Active Cats:", cats.length)
+    console.groupEnd()
+  }
+
+  const executeCommand = (command: string) => {
+    const cmd = command.toLowerCase().trim()
+    logToConsole("Admin Command Executed", { command: cmd })
+
+    switch (cmd) {
+      case "clear-downloads":
+        closeAllDownloads()
+        break
+      case "reset-counts":
+        break
+      case "spawn-cat":
+        addCat()
+        break
+      case "clear-cats":
+        closeAllCats()
+        break
+      case "toggle-theme":
+        document.documentElement.classList.toggle("dark")
+        break
+      case "reload-page":
+        window.location.reload()
+        break
+      case "export-logs":
+        console.log("📊 Site Statistics Export", { downloads, cats: cats.length })
+        break
+      case "show-stats":
+        alert(`Downloads: ${downloads.length}, Cats: ${cats.length}, Theme Clicks: ${themeClickCount}`)
+        break
+      default:
+        alert(`Unknown command: ${cmd}`)
+    }
+
+    setCommandHistory((prev) => [command, ...prev.slice(0, 9)]) // Keep last 10 commands
+    setCommandInput("")
+  }
+
+  useEffect(() => {
+    logToConsole("Page Load", {
+      searchParams: Object.fromEntries(searchParams.entries()),
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
+      viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+    })
+
+    const key = searchParams.get("key")
+    if (key && validAdminKeys.includes(key)) {
+      setIsAdmin(true)
+      setAdminKey(key)
+      setKeyInput(key)
+      setKeyStatus("valid")
+      if (key === ownerKey) {
+        setIsOwner(true)
+      }
+      logToConsole("Auto Admin Login", { key, method: "URL_PARAMETER", isOwner: key === ownerKey })
+    }
+  }, [searchParams])
+
+  // Theme change detection
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "attributes" && mutation.attributeName === "class") {
+          const isDark = document.documentElement.classList.contains("dark")
+          logToConsole("Theme Change Detected", {
+            theme: isDark ? "dark" : "light",
+            themeClickCount,
+            lightModeStartTime: lightModeStartTime.current,
+          })
+
+          if (!isDark && !hideThemeToggle) {
+            // Light mode activated
+            lightModeStartTime.current = Date.now()
+            const timer = setTimeout(() => {
+              if (!document.documentElement.classList.contains("dark")) {
+                addCat()
+                logToConsole("Light Mode Cat Spawn", { duration: "10_seconds" })
+              }
+            }, 10000)
+            setLightModeTimer(timer)
+          } else {
+            // Dark mode activated
+            if (lightModeTimer) {
+              clearTimeout(lightModeTimer)
+              setLightModeTimer(null)
+            }
+            lightModeStartTime.current = null
+          }
+        }
+      })
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+
+    return () => observer.disconnect()
+  }, [themeClickCount, lightModeTimer, hideThemeToggle])
+
+  const handleKeySubmit = () => {
+    logToConsole("Admin Key Attempt", {
+      keyInput: keyInput.substring(0, 3) + "***",
+      isValid: validAdminKeys.includes(keyInput.trim()),
+    })
+
+    if (validAdminKeys.includes(keyInput.trim())) {
+      setIsAdmin(true)
+      setAdminKey(keyInput.trim())
+      setKeyStatus("valid")
+      setShowKeyOverlay(false)
+
+      // Check if it's the owner key
+      if (keyInput.trim() === ownerKey) {
+        setIsOwner(true)
+        logToConsole("Owner Access Granted", { key: keyInput.trim() })
+      } else {
+        setIsOwner(false)
+        logToConsole("Admin Access Granted", { key: keyInput.trim() })
+      }
+    } else {
+      setKeyStatus("invalid")
+      logToConsole("Admin Access Denied", { reason: "Invalid key" })
+      setTimeout(() => setKeyStatus("idle"), 2000)
+    }
+  }
+
+  const handleKeyChange = (value: string) => {
+    setKeyInput(value)
+    if (keyStatus !== "idle") {
+      setKeyStatus("idle")
+    }
+    logToConsole("Admin Key Input Change", { length: value.length })
+  }
+
+  const handleGoBackToOriginal = () => {
+    logToConsole("Admin Logout", { previousKey: adminKey, wasOwner: isOwner })
+    setIsAdmin(false)
+    setIsOwner(false)
+    setAdminKey(null)
+    setKeyInput("")
+    setKeyStatus("idle")
+    setShowKeyOverlay(false)
+  }
+
+  const handleThemeToggleClick = () => {
+    const newCount = themeClickCount + 1
+    setThemeClickCount(newCount)
+    logToConsole("Theme Toggle Click", {
+      clickCount: newCount,
+      isEasterEggTrigger: newCount === 5,
+    })
+  }
+
+  const addCat = () => {
+    const newCat: Cat = {
+      id: Math.random().toString(36).substr(2, 9),
+      x: Math.random() * (window.innerWidth - 200),
+      y: Math.random() * (window.innerHeight - 200),
+      size: Math.random() * 100 + 50,
+      imageUrl: getRandomCatImage(),
+    }
+    setCats((prev) => {
+      const newCats = [...prev, newCat]
+      logToConsole("Cat Added", {
+        catId: newCat.id,
+        totalCats: newCats.length,
+        position: { x: newCat.x, y: newCat.y },
+        size: newCat.size,
+        imageUrl: newCat.imageUrl,
+      })
+
+      if (newCats.length >= 64) {
+        logToConsole("Cat Limit Reached", { totalCats: newCats.length })
+        setTimeout(() => {
+          setCats([])
+          setShowEasterEggWarning(true)
+          setHideThemeToggle(true)
+          logToConsole("All Cats Cleared", { reason: "64_cat_limit", themeToggleHidden: true })
+        }, 1000)
+      }
+
+      return newCats
+    })
+  }
+
+  const removeCat = (catId: string) => {
+    setCats((prev) => {
+      const filtered = prev.filter((cat) => cat.id !== catId)
+      logToConsole("Cat Removed", {
+        catId,
+        remainingCats: filtered.length,
+        newCatsSpawned: 2,
+      })
+
+      // Add 2 new cats when one is closed
+      setTimeout(() => {
+        addCat()
+        setTimeout(() => addCat(), 100)
+      }, 100)
+
+      return filtered
+    })
+  }
+
+  const closeAllCats = () => {
+    logToConsole("Close All Cats", { totalCats: cats.length })
+
+    // Trigger the same effect as clicking all cats at once
+    const catCount = cats.length
+    setCats([])
+
+    // Add double the number of cats that were closed
+    setTimeout(() => {
+      for (let i = 0; i < Math.min(catCount * 2, 30); i++) {
+        setTimeout(() => addCat(), i * 50)
+      }
+    }, 300)
+  }
+
+  const checkEasterEgg = (fileId: string) => {
+    const newOrder = [...downloadOrder, fileId]
+    setDownloadOrder(newOrder)
+
+    logToConsole("Download Order Updated", {
+      fileId,
+      currentOrder: newOrder,
+      targetOrder: ["4", "2", "1", "3", "5"],
+      isEasterEggSequence: JSON.stringify(newOrder) === JSON.stringify(["4", "2", "1", "3", "5"]),
+    })
+
+    // Check for easter egg sequence: 4, 2, 1, 3, 5
+    if (JSON.stringify(newOrder) === JSON.stringify(["4", "2", "1", "3", "5"])) {
+      addCat()
+      setDownloadOrder([]) // Reset order
+      logToConsole("Easter Egg Triggered", {
+        trigger: "download_sequence",
+        sequence: ["4", "2", "1", "3", "5"],
+      })
+    }
+
+    // Check theme toggle easter egg
+    if (themeClickCount === 5 && newOrder.length > 0) {
+      addCat()
+      setThemeClickCount(0) // Reset count
+      logToConsole("Easter Egg Triggered", {
+        trigger: "theme_toggle_download",
+        themeClicks: 5,
+        downloadAfter: true,
+      })
+    }
+  }
+
+  const cancelDownload = (downloadId: string) => {
+    setDownloads((prev) =>
+      prev.map((d) => {
+        if (d.fileId === downloadId) {
+          if (d.intervalId) {
+            clearInterval(d.intervalId)
+          }
+          logToConsole("Download Cancelled", {
+            downloadId,
+            fileName: d.fileName,
+            progress: d.progress,
+          })
+          return { ...d, status: "cancelled", statusMessage: "Download cancelled" }
+        }
+        return d
+      }),
+    )
+
+    setTimeout(() => {
+      setDownloads((prev) => prev.filter((d) => d.fileId !== downloadId))
+    }, 2000)
+  }
+
+  const closeAllDownloads = () => {
+    downloads.forEach((download) => {
+      if (download.intervalId) {
+        clearInterval(download.intervalId)
+      }
+    })
+    setDownloads([])
+    logToConsole("All Downloads Closed", { totalDownloads: downloads.length })
+  }
+
+  const fetchGitHubRawAndCreateBat = async (file: DownloadFile, downloadId: string) => {
+    try {
+      logToConsole("GitHub Raw Fetch Started", {
+        fileId: file.id,
+        fileName: file.name,
+        url: file.downloadUrl,
+        downloadId,
+      })
+
+      // Update status to fetching
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.fileId === downloadId ? { ...d, status: "fetching", statusMessage: "Fetching from GitHub..." } : d,
+        ),
+      )
+
+      // Fetch the raw content from GitHub
+      const response = await fetch(file.downloadUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
+      }
+
+      const batContent = await response.text()
+      logToConsole("GitHub Raw Content Fetched", {
+        fileId: file.id,
+        contentLength: batContent.length,
+        downloadId,
+      })
+
+      // Update status to creating file
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.fileId === downloadId ? { ...d, status: "creating", statusMessage: "Creating .bat file..." } : d,
+        ),
+      )
+
+      // Simulate file creation progress with random timing
+      const creationTime = Math.random() * 800 + 200 // 0.2-1s
+      await new Promise((resolve) => setTimeout(resolve, creationTime))
+
+      // Create blob and download
+      const blob = new Blob([batContent], { type: "application/x-bat" })
+      const url = URL.createObjectURL(blob)
+
+      // Update to completed
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.fileId === downloadId
+            ? {
+                ...d,
+                progress: 100,
+                status: "completed",
+                statusMessage: "File created and ready!",
+                downloadedMB: file.sizeInMB || 1,
+              }
+            : d,
+        ),
+      )
+
+      logToConsole("BAT File Created", {
+        fileId: file.id,
+        fileName: file.name,
+        blobSize: blob.size,
+        downloadId,
+      })
+
+      // Start download
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${file.name.replace(/[^a-zA-Z0-9]/g, "_")}.bat`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      // Clean up
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+        setDownloads((prev) => prev.filter((d) => d.fileId !== downloadId))
+        logToConsole("Download Progress Cleared", { downloadId })
+      }, 3000)
+
+      logToConsole("BAT File Download Completed", {
+        fileId: file.id,
+        fileName: file.name,
+        downloadId,
+      })
+    } catch (error) {
+      logToConsole("GitHub Raw Fetch Error", {
+        fileId: file.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+        downloadId,
+      })
+
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.fileId === downloadId ? { ...d, status: "error", statusMessage: "Failed to fetch file" } : d,
+        ),
+      )
+
+      setTimeout(() => {
+        setDownloads((prev) => prev.filter((d) => d.fileId !== downloadId))
+      }, 5000)
+    }
+  }
+
+  const simulateDownload = (file: DownloadFile, url: string) => {
+    const totalMB = file.sizeInMB || 50
+    const downloadId = `${file.id}-${Date.now()}`
+
+    logToConsole("Download Started", {
+      fileId: file.id,
+      fileName: file.name,
+      fileSize: totalMB,
+      url: url.substring(0, 50) + "...",
+      downloadId,
+      isGitHubRaw: file.isGitHubRaw,
+    })
+
+    const newDownload: DownloadProgress = {
+      fileId: downloadId,
+      fileName: file.name,
+      progress: 0,
+      status: "downloading",
+      downloadedMB: 0,
+      totalMB: totalMB,
+      statusMessage: "Downloading...",
+    }
+
+    setDownloads((prev) => [...prev, newDownload])
+
+    // Handle GitHub raw files differently
+    if (file.isGitHubRaw && file.fileType === "BAT") {
+      fetchGitHubRawAndCreateBat(file, downloadId)
+      return
+    }
+
+    // Regular download simulation with adjusted timing based on file size
+    let downloadDuration = 0
+    if (totalMB > 50) {
+      // Large files: 1.5-2.5 seconds
+      downloadDuration = Math.random() * 1000 + 1500
+    } else {
+      // Smaller files: 0.1-0.3 seconds
+      downloadDuration = Math.random() * 200 + 100
+    }
+
+    const updateInterval = 50 // Update every 50ms
+    const totalUpdates = downloadDuration / updateInterval
+    const progressIncrement = 100 / totalUpdates
+
+    let progress = 0
+    const interval = setInterval(() => {
+      progress += progressIncrement
+
+      if (progress >= 100) {
+        progress = 100
+        setDownloads((prev) =>
+          prev.map((d) =>
+            d.fileId === downloadId
+              ? { ...d, progress: 100, status: "completed", downloadedMB: totalMB, statusMessage: "Download complete!" }
+              : d,
+          ),
+        )
+        clearInterval(interval)
+
+        logToConsole("Download Completed", {
+          fileId: file.id,
+          fileName: file.name,
+          downloadId,
+          totalMB,
+        })
+
+        const link = document.createElement("a")
+        link.href = url
+        link.download = file.name
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        setTimeout(() => {
+          setDownloads((prev) => prev.filter((d) => d.fileId !== downloadId))
+          logToConsole("Download Progress Cleared", { downloadId })
+        }, 3000)
+      } else {
+        setDownloads((prev) =>
+          prev.map((d) =>
+            d.fileId === downloadId
+              ? {
+                  ...d,
+                  progress,
+                  downloadedMB: (progress / 100) * totalMB,
+                  statusMessage: `Downloading... ${Math.round(progress)}%`,
+                  intervalId: interval,
+                }
+              : d,
+          ),
+        )
+      }
+    }, updateInterval)
+  }
+
+  const handleFileClick = (file: DownloadFile) => {
+    logToConsole("File Click", {
+      fileId: file.id,
+      fileName: file.name,
+      fileType: file.fileType,
+      hasWarning: !!file.requiresWarning,
+      warningMessage: file.warningMessage,
+      isGitHubRaw: file.isGitHubRaw,
+      category: file.category,
+    })
+
+    checkEasterEgg(file.id)
+    setCurrentFileId(file.id)
+
+    if (file.requiresWarning && file.warningMessage) {
+      setWarningMessage(file.warningMessage)
+      setShowWarningDialog(true)
+      logToConsole("Warning Dialog Shown", {
+        fileId: file.id,
+        warningMessage: file.warningMessage,
+      })
+      return
+    }
+
+    if (file.tutorialContent) {
+      setTutorialContent(file.tutorialContent)
+      setShowTutorialDialog(true)
+      logToConsole("Tutorial Dialog Shown", {
+        fileId: file.id,
+        fileName: file.name,
+      })
+      return
+    }
+
+    if (file.isOnlineOnly) {
+      window.open(file.downloadUrl, "_blank")
+      logToConsole("Online Tool Opened", {
+        fileId: file.id,
+        url: file.downloadUrl,
+      })
+    } else if (file.fileType === "LINK") {
+      window.open(file.downloadUrl, "_blank")
+      logToConsole("External Link Opened", {
+        fileId: file.id,
+        url: file.downloadUrl,
+      })
+    } else if (file.fileType === "ADMIN") {
+      window.open(file.downloadUrl, "_blank")
+      logToConsole("Admin Panel Accessed", {
+        fileId: file.id,
+        url: file.downloadUrl,
+      })
+    } else {
+      simulateDownload(file, file.downloadUrl)
+    }
+  }
+
+  const getFilesByCategory = (category: string) => {
+    return files.filter((file) => {
+      if (!isAdmin && file.adminOnly) return false
+      return file.category === category
+    })
+  }
+
+  const getAvailableCategories = () => {
+    const categories = new Set<string>()
+    files.forEach((file) => {
+      if (!isAdmin && file.adminOnly) return
+      categories.add(file.category)
+    })
+    return Array.from(categories)
+  }
+
+  const filteredChangelog = changelog.filter((entry) => {
+    const matchesSearch =
+      changelogSearch === "" ||
+      entry.version.toLowerCase().includes(changelogSearch.toLowerCase()) ||
+      entry.changes.some((change) => change.toLowerCase().includes(changelogSearch.toLowerCase()))
+
+    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => entry.tags.includes(tag))
+
+    return matchesSearch && matchesTags
+  })
+
+  const allTags = Array.from(new Set(changelog.flatMap((entry) => entry.tags)))
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  const toggleLanguage = () => {
+    setIsPortuguese(!isPortuguese)
+    logToConsole("Language Changed", { isPortuguese: !isPortuguese })
+  }
+
+  // Translations
+  const translations = {
+    en: {
+      title: "Download Center",
+      subtitle: "Access our collection of tools, utilities, and resources. Download what you need with confidence.",
+      changelog: "Changelog",
+      adminAccess: "Admin Access",
+      discord: "Discord",
+      download: "Download",
+      cancel: "Cancel",
+      close: "Close",
+      continue: "Continue",
+      activeDownloads: "Active Downloads",
+      closeAll: "Close All",
+      adminAccessGranted: "Admin Access Granted",
+      ownerAccessGranted: "Owner Access Granted",
+      adminAccessText:
+        "You now have access to everything in the site, from secret downloads to changing the site itself!",
+      ownerAccessText: " As the owner, you have full control over all aspects of the site.",
+      adminPanel: "Admin Panel",
+      logout: "Logout",
+      commandPanel: "Command Panel",
+      enterCommand: "Enter command...",
+      execute: "Execute",
+      availableCommands: "Available Commands:",
+      commandHistory: "Command History:",
+      warning: "Warning",
+      installationGuide: "Installation Guide",
+      search: "Search changelog...",
+      tooManyCats: "Too Many Cats!",
+      tooManyCatsText: "You've spawned too many cats! The theme toggle has been disabled to prevent further chaos.",
+      understand: "I Understand",
+      open: "Open",
+      source: "Source",
+      visit: "Visit",
+      translateTo: "Translate to Portuguese",
+    },
+    pt: {
+      title: "Central de Downloads",
+      subtitle: "Acesse nossa coleção de ferramentas, utilitários e recursos. Baixe o que você precisa com confiança.",
+      changelog: "Histórico de Mudanças",
+      adminAccess: "Acesso Admin",
+      discord: "Discord",
+      download: "Baixar",
+      cancel: "Cancelar",
+      close: "Fechar",
+      continue: "Continuar",
+      activeDownloads: "Downloads Ativos",
+      closeAll: "Fechar Todos",
+      adminAccessGranted: "Acesso Admin Concedido",
+      ownerAccessGranted: "Acesso de Proprietário Concedido",
+      adminAccessText: "Agora você tem acesso a tudo no site, desde downloads secretos até alterar o próprio site!",
+      ownerAccessText: " Como proprietário, você tem controle total sobre todos os aspectos do site.",
+      adminPanel: "Painel Admin",
+      logout: "Sair",
+      commandPanel: "Painel de Comandos",
+      enterCommand: "Digite comando...",
+      execute: "Executar",
+      availableCommands: "Comandos Disponíveis:",
+      commandHistory: "Histórico de Comandos:",
+      warning: "Aviso",
+      installationGuide: "Guia de Instalação",
+      search: "Pesquisar histórico...",
+      tooManyCats: "Muitos Gatos!",
+      tooManyCatsText: "Você gerou muitos gatos! O botão de tema foi desabilitado para evitar mais caos.",
+      understand: "Eu Entendo",
+      open: "Abrir",
+      source: "Fonte",
+      visit: "Visitar",
+      translateTo: "Traduzir para Inglês",
+    },
+  }
+
+  const t = translations[isPortuguese ? "pt" : "en"]
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 animate-in fade-in duration-700">
+      {/* Cats */}
+      {cats.map((cat) => (
+        <div
+          key={cat.id}
+          className="fixed z-50 cursor-pointer"
+          style={{
+            left: cat.x,
+            top: cat.y,
+            width: cat.size,
+            height: cat.size,
+          }}
+          onClick={() => removeCat(cat.id)}
+        >
+          <img
+            src={cat.imageUrl || "/placeholder.svg"}
+            alt="Easter egg cat"
+            className="w-full h-full object-cover rounded-full border-4 border-primary shadow-lg hover:scale-110 transition-transform"
+          />
+        </div>
+      ))}
+
+      {/* Close All Cats Button */}
+      {cats.length > 0 && (
+        <Button
+          onClick={closeAllCats}
+          variant="destructive"
+          size="lg"
+          className="fixed top-6 right-6 z-50 shadow-lg transition-all duration-200 hover:scale-105"
+        >
+          <XCircle className="mr-2 h-4 w-4" />
+          {t.closeAll}
+        </Button>
+      )}
+
+      {/* Key Overlay */}
+      {showKeyOverlay && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-300 ease-out">
+            <div className="text-center mb-6">
+              <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">{t.adminAccess}</h2>
+              <p className="text-sm text-muted-foreground">Only mess with this if you know what you're doing.</p>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 border rounded-lg">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Enter admin key..."
+                  value={keyInput}
+                  onChange={(e) => handleKeyChange(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
+                  className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleKeySubmit}
+                  variant={keyStatus === "valid" ? "default" : keyStatus === "invalid" ? "destructive" : "outline"}
+                  className="h-8 w-8 p-0 transition-all duration-200 hover:scale-105"
+                >
+                  {keyStatus === "valid" ? (
+                    <Check className="h-3 w-3" />
+                  ) : keyStatus === "invalid" ? (
+                    <X className="h-3 w-3" />
+                  ) : (
+                    <Key className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowKeyOverlay(false)}
+                className="w-full transition-all duration-200 hover:scale-105"
+              >
+                {t.cancel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 py-8 lg:py-12">
+        {/* Header */}
+        <div className="text-center mb-12 animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+              {t.title}
+            </h1>
+            {isAdmin && (
+              <Badge
+                variant="destructive"
+                className={`flex items-center gap-1 px-3 py-1 ${isOwner ? "bg-black hover:bg-black/90" : ""}`}
+              >
+                <Shield className="h-3 w-3" />
+                {isOwner ? "Owner" : "Admin"} ({adminKey})
+              </Badge>
+            )}
+          </div>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{t.subtitle}</p>
+          <div className="flex justify-center gap-4 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowChangelogDialog(true)
+                logToConsole("Changelog Opened", {})
+              }}
+              className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <Clock className="h-4 w-4" />
+              {t.changelog}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={toggleLanguage}
+              className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            >
+              <Code className="h-4 w-4" />
+              {t.translateTo}
+            </Button>
+          </div>
+        </div>
+
+        {/* Admin Status */}
+        {isAdmin && (
+          <div
+            className={`mb-8 p-6 rounded-xl animate-in slide-in-from-left-4 duration-500 ${
+              isOwner
+                ? "bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-700 text-white"
+                : "bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50 border border-red-200 dark:border-red-800"
+            }`}
+          >
+            <div className={`flex items-center gap-3 ${isOwner ? "text-white" : "text-red-800 dark:text-red-200"}`}>
+              <User className="h-5 w-5" />
+              <span className="font-semibold text-lg">{isOwner ? t.ownerAccessGranted : t.adminAccessGranted}</span>
+            </div>
+            <p className={isOwner ? "text-gray-300 mt-2" : "text-red-600 dark:text-red-300 mt-2"}>
+              {t.adminAccessText}
+              {isOwner && t.ownerAccessText}
+            </p>
+          </div>
+        )}
+
+        {/* Download Progress Panel */}
+        {downloads.length > 0 && (
+          <div className="mb-8 space-y-4 animate-in slide-in-from-right-4 duration-500">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{t.activeDownloads}</h3>
+              <Button
+                onClick={closeAllDownloads}
+                variant="outline"
+                size="sm"
+                className="transition-all duration-200 hover:scale-105"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                {t.closeAll}
+              </Button>
+            </div>
+            {downloads.map((download, index) => (
+              <div
+                key={download.fileId}
+                className="p-6 bg-card border rounded-xl shadow-sm transition-all duration-300 hover:shadow-md animate-in slide-in-from-right-2"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{download.fileName}</span>
+                    {download.status === "fetching" && <FileText className="h-4 w-4 text-blue-500 animate-pulse" />}
+                    {download.status === "creating" && <FileText className="h-4 w-4 text-green-500 animate-pulse" />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {download.downloadedMB.toFixed(1)} / {download.totalMB.toFixed(1)} MB
+                    </span>
+                    {download.status === "downloading" && (
+                      <Button
+                        onClick={() => cancelDownload(download.fileId)}
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 transition-all duration-200 hover:scale-105"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 mb-2">
+                  <Progress value={download.progress} className="flex-1 h-2" />
+                  <span className="text-sm font-medium min-w-[3rem]">{Math.round(download.progress)}%</span>
+                  {download.status === "completed" && <Check className="h-5 w-5 text-green-500" />}
+                  {download.status === "error" && <X className="h-5 w-5 text-red-500" />}
+                  {download.status === "cancelled" && <X className="h-5 w-5 text-orange-500" />}
+                </div>
+                {download.statusMessage && <p className="text-xs text-muted-foreground">{download.statusMessage}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Download Categories */}
+        <Tabs value={activeCategory} onValueChange={setActiveCategory} className="mb-8">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-8 animate-in slide-in-from-left-4 duration-500">
+            {getAvailableCategories().map((category) => {
+              const Icon = categoryIcons[category as keyof typeof categoryIcons]
+              return (
+                <TabsTrigger
+                  key={category}
+                  value={category}
+                  className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{categoryNames[category as keyof typeof categoryNames]}</span>
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+
+          {getAvailableCategories().map((category) => (
+            <TabsContent key={category} value={category}>
+              {/* iOS Jailbreak Note */}
+              {category === "ios-jailbreak" && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-blue-800 dark:text-blue-200 text-sm font-medium">
+                    📱 Open these on your iPhone only
+                  </p>
+                </div>
+              )}
+
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {getFilesByCategory(category).map((file, index) => {
+                  const isDownloading = downloads.some((d) => d.fileName === file.name && d.status === "downloading")
+                  return (
+                    <Card
+                      key={file.id}
+                      className={`group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] animate-in zoom-in-95 ${
+                        file.adminOnly
+                          ? isOwner
+                            ? "border-gray-700 dark:border-gray-700 bg-gradient-to-br from-gray-900/50 to-background dark:from-gray-900/20"
+                            : "border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50/50 to-background dark:from-red-950/20"
+                          : "hover:border-primary/50"
+                      }`}
+                      style={{
+                        animationDelay: `${index * 50}ms`,
+                        transformOrigin: "center",
+                        perspective: "1000px",
+                        transform: "translateZ(0)",
+                      }}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-lg leading-tight">{file.name}</CardTitle>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {file.version && (
+                              <Badge variant="outline" className="text-xs">
+                                v{file.version}
+                              </Badge>
+                            )}
+                            {file.isGitHubRaw && (
+                              <Badge variant="outline" className="text-xs">
+                                <FileText className="h-3 w-3 mr-1" />
+                                Raw
+                              </Badge>
+                            )}
+                            {file.isModded && (
+                              <Badge variant="secondary" className="text-xs">
+                                Modded
+                              </Badge>
+                            )}
+                            {file.adminOnly && (
+                              <Badge
+                                variant="destructive"
+                                className={`text-xs shrink-0 ${isOwner ? "bg-black hover:bg-black/90" : ""}`}
+                              >
+                                <Shield className="h-3 w-3 mr-1" />
+                                {isOwner ? "Owner" : "Admin"}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-4">
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{file.description}</p>
+                        {file.note && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mb-3 font-medium">ℹ️ {file.note}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-sm flex-wrap">
+                          <Badge variant="secondary" className="text-xs">
+                            {file.fileType}
+                          </Badge>
+                          <span className="text-muted-foreground">{file.fileSize}</span>
+                          {(file.sizeInMB && file.sizeInMB > 50) || file.isGitHubRaw ? (
+                            <Badge variant="outline" className="text-xs">
+                              Progress
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-0 flex flex-col gap-2">
+                        {isDownloading ? (
+                          <Button
+                            className="w-full bg-red-600 hover:bg-red-700 text-white transition-colors transition-all duration-200 hover:scale-105"
+                            onClick={() => {
+                              const download = downloads.find(
+                                (d) => d.fileName === file.name && d.status === "downloading",
+                              )
+                              if (download) cancelDownload(download.fileId)
+                            }}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            {t.cancel}
+                          </Button>
+                        ) : (
+                          <Button
+                            className="w-full bg-black hover:bg-black/90 text-white transition-colors transition-all duration-200 hover:scale-105"
+                            onClick={() => handleFileClick(file)}
+                          >
+                            {file.fileType === "LINK" ? (
+                              <>
+                                <Download className="mr-2 h-4 w-4" />
+                                {t.visit} GitHub
+                              </>
+                            ) : file.fileType === "ADMIN" ? (
+                              <>
+                                <Shield className="mr-2 h-4 w-4" />
+                                Access Panel
+                              </>
+                            ) : file.isOnlineOnly ? (
+                              <>
+                                <Download className="mr-2 h-4 w-4" />
+                                {t.open}
+                              </>
+                            ) : (
+                              <>
+                                <Download className="mr-2 h-4 w-4" />
+                                {t.download}
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Source button for PC Booster */}
+                        {file.id === "1" && file.sourceUrl && (
+                          <Button
+                            variant="outline"
+                            className="w-full transition-all duration-200 hover:scale-105"
+                            onClick={() => {
+                              window.open(file.sourceUrl, "_blank")
+                              logToConsole("Source Button Clicked", {
+                                fileId: file.id,
+                                sourceUrl: file.sourceUrl,
+                              })
+                            }}
+                          >
+                            <Code className="mr-2 h-4 w-4" />
+                            {t.source}
+                          </Button>
+                        )}
+
+                        {/* Additional buttons for files with multiple downloads */}
+                        {file.additionalButtons &&
+                          file.additionalButtons.map((button, buttonIndex) => (
+                            <Button
+                              key={buttonIndex}
+                              variant="outline"
+                              className="w-full transition-all duration-200 hover:scale-105"
+                              onClick={() => {
+                                window.open(button.url, "_blank")
+                                logToConsole("Additional Button Clicked", {
+                                  fileId: file.id,
+                                  buttonLabel: button.label,
+                                  url: button.url,
+                                })
+                              }}
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              {button.label}
+                            </Button>
+                          ))}
+                      </CardFooter>
+                    </Card>
+                  )
+                })}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        {/* Admin Actions */}
+        {isAdmin && (
+          <div className="mb-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button
+                onClick={() => setShowKeyOverlay(false)}
+                variant="outline"
+                className="transition-all duration-200 hover:scale-105"
+              >
+                <User className="mr-2 h-4 w-4" />
+                {t.adminPanel}
+              </Button>
+              <Button
+                onClick={handleGoBackToOriginal}
+                variant="destructive"
+                className="transition-all duration-200 hover:scale-105"
+              >
+                <X className="mr-2 h-4 w-4" />
+                {t.logout}
+              </Button>
+              {isOwner && (
+                <Button
+                  onClick={() => setShowCommandPanel(!showCommandPanel)}
+                  variant="outline"
+                  className="transition-all duration-200 hover:scale-105"
+                >
+                  <Code className="mr-2 h-4 w-4" />
+                  {t.commandPanel}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Command Panel for Owner */}
+        {isOwner && showCommandPanel && (
+          <div className="mb-8 p-6 bg-card border rounded-xl shadow-sm animate-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-lg font-semibold mb-4">Owner Command Panel</h3>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t.enterCommand}
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      executeCommand(commandInput)
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => executeCommand(commandInput)}
+                  className="transition-all duration-200 hover:scale-105"
+                >
+                  {t.execute}
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium mb-2">{t.availableCommands}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                  {adminCommands.map((cmd, index) => (
+                    <code key={index} className="text-xs bg-muted p-1 rounded">
+                      {cmd}
+                    </code>
+                  ))}
+                </div>
+              </div>
+              {commandHistory.length > 0 && (
+                <div className="text-sm">
+                  <p className="font-medium mb-2">{t.commandHistory}</p>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {commandHistory.map((cmd, index) => (
+                      <div key={index} className="text-xs bg-muted p-1 rounded">
+                        {cmd}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-16 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-center gap-4 mb-6">
+            <Button
+              onClick={() => setShowKeyOverlay(true)}
+              variant="outline"
+              className="transition-all duration-200 hover:scale-105"
+            >
+              <Key className="mr-2 h-4 w-4" />
+              {t.adminAccess}
+            </Button>
+            <Button
+              onClick={() => window.open("https://discord.gg/Vk6AAVGuJV", "_blank")}
+              variant="outline"
+              className="transition-all duration-200 hover:scale-105"
+            >
+              <Code className="mr-2 h-4 w-4" />
+              {t.discord}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Download Center v1.0.0 - Built with ❤️ for the community</p>
+        </div>
+      </div>
+
+      {/* Warning Dialog */}
+      {showWarningDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-300">
+            <div className="text-center mb-6">
+              <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">{t.warning}</h2>
+              <p className="text-sm text-muted-foreground">{warningMessage}</p>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowWarningDialog(false)}
+                className="flex-1 transition-all duration-200 hover:scale-105"
+              >
+                {t.cancel}
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowWarningDialog(false)
+                  if (currentFileId) {
+                    const file = files.find((f) => f.id === currentFileId)
+                    if (file) {
+                      if (file.isOnlineOnly) {
+                        window.open(file.downloadUrl, "_blank")
+                      } else {
+                        simulateDownload(file, file.downloadUrl)
+                      }
+                    }
+                  }
+                }}
+                className="flex-1 transition-all duration-200 hover:scale-105"
+              >
+                {t.continue}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tutorial Dialog */}
+      {showTutorialDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-xl shadow-2xl p-8 w-full max-w-2xl max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-300">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold mb-4">{t.installationGuide}</h2>
+              <div className="text-sm text-muted-foreground whitespace-pre-line">{tutorialContent}</div>
+            </div>
+            <Button
+              onClick={() => setShowTutorialDialog(false)}
+              className="w-full transition-all duration-200 hover:scale-105"
+            >
+              {t.close}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Changelog Dialog */}
+      {showChangelogDialog && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-xl shadow-2xl p-8 w-full max-w-4xl max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-300">
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">{t.changelog}</h2>
+                <Button
+                  onClick={() => setShowChangelogDialog(false)}
+                  variant="outline"
+                  size="sm"
+                  className="transition-all duration-200 hover:scale-105"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Search and Filter */}
+              <div className="mb-6 space-y-4">
+                <Input
+                  placeholder={t.search}
+                  value={changelogSearch}
+                  onChange={(e) => setChangelogSearch(e.target.value)}
+                  className="w-full"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => (
+                    <Button
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleTag(tag)}
+                      className="text-xs transition-all duration-200 hover:scale-105"
+                    >
+                      {tag}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Changelog Entries */}
+              <div className="space-y-6">
+                {filteredChangelog.map((entry, index) => (
+                  <div key={entry.version} className="border rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">{entry.version}</h3>
+                      <span className="text-sm text-muted-foreground">{entry.date}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {entry.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <ul className="space-y-2">
+                      {entry.changes.map((change, changeIndex) => (
+                        <li key={changeIndex} className="text-sm flex items-start gap-2">
+                          <span className="text-green-500 mt-1">•</span>
+                          <span>{change}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Easter Egg Warning */}
+      {showEasterEggWarning && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background border rounded-xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-300">
+            <div className="text-center mb-6">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">{t.tooManyCats}</h2>
+              <p className="text-sm text-muted-foreground">{t.tooManyCatsText}</p>
+            </div>
+            <Button
+              onClick={() => {
+                setShowEasterEggWarning(false)
+                setHideThemeToggle(false)
+              }}
+              className="w-full transition-all duration-200 hover:scale-105"
+            >
+              {t.understand}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
